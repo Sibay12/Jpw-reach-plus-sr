@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - JPW</title>
+    <style>
+        body { font-family: sans-serif; background: #0b0f19; color: #fff; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: #111827; padding: 25px; border-radius: 15px; }
+        input, button { padding: 10px; margin: 5px 0; border-radius: 6px; border: 1px solid #374151; background: #1f2937; color: #fff; width: 100%; }
+        button { background: #0284c7; cursor: pointer; font-weight: bold; width: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #374151; padding: 10px; text-align: left; font-size: 13px; }
+        th { background: #1f2937; color: #38bdf8; }
+        .hidden { display: none; }
+        .danger { background: #dc3545; }
+        .success { background: #10b981; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>👑 Admin Panel</h2>
+    <div id="login-box" style="max-width:350px; margin:40px auto;">
+        <input type="password" id="adminPass" placeholder="Admin Password">
+        <button onclick="login()" style="width:100%;">Login</button>
+        <p id="errMsg" style="color:#f87171;"></p>
+    </div>
+
+    <div id="dash-box" class="hidden">
+        <h3>📦 Orders & SR Requests</h3>
+        <table>
+            <thead>
+                <tr><th>Telegram ID</th><th>Service Details</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="orders-tbl"></tbody>
+        </table>
+    </div>
+</div>
+<script>
+    async function login() {
+        const password = document.getElementById('adminPass').value;
+        const res = await fetch('/api/admin/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ password }) });
+        const data = await res.json();
+        if(data.success) {
+            document.getElementById('login-box').classList.add('hidden');
+            document.getElementById('dash-box').classList.remove('hidden');
+            loadData();
+        } else { document.getElementById('errMsg').innerText = data.message; }
+    }
+
+    async function loadData() {
+        const res = await fetch('/api/admin/data');
+        const data = await res.json();
+        let html = '';
+        data.orders.forEach(ord => {
+            let details = ord.serviceType === 'SR' ? `<b>[SR]</b> Mobile: ${ord.srMobile}, Name: ${ord.srCustomerName}` : `<b>[Website]</b> ID: ${ord.targetId}`;
+            html += `<tr>
+                <td><code>${ord.telegramChatId}</code></td>
+                <td>${details}</td>
+                <td><b>${ord.status}</b></td>
+                <td>
+                    <button class="success" onclick="action('${ord._id}', 'accept')">Accept</button>
+                    <button class="danger" onclick="action('${ord._id}', 'reject')">Reject</button>
+                    <button onclick="action('${ord._id}', 'inprogress')">In-Prog</button>
+                    <button class="success" onclick="action('${ord._id}', 'complete')">Complete</button>
+                </td>
+            </tr>`;
+        });
+        document.getElementById('orders-tbl').innerHTML = html;
+    }
+
+    async function action(orderId, action) {
+        await fetch('/api/admin/order-action', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ orderId, action }) });
+        loadData();
+    }
+</script>
+</body>
+</html>
