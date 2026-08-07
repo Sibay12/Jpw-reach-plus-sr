@@ -1,15 +1,11 @@
-{
-  "name": "jpw-bot-services",
-  "version": "1.0.0",
-  "description": "JPW Coin Services Bot",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "mongoose": "^8.3.1",
-    "node-telegram-bot-api": "^0.65.1"
-  }
-}
+// --- USER HISTORY API ---
+app.get('/api/user-history', async (req, res) => {
+    try {
+        const { telegramChatId } = req.query;
+        if (!telegramChatId) return res.json({ success: false, orders: [] });
+        const orders = await OrderModel.find({ telegramChatId: String(telegramChatId) }).sort({ createdAt: -1 });
+        res.json({ success: true, orders });
+    } catch (e) {
+        res.status(500).json({ success: false, orders: [] });
+    }
+});
