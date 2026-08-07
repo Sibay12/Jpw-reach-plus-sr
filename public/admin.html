@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - JPW</title>
+    <style>
+        body { font-family: sans-serif; background: #0b0f19; color: #fff; padding: 20px; }
+        .container { max-width: 1050px; margin: 0 auto; background: #111827; padding: 25px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.08); }
+        h2, h3 { color: #38bdf8; text-align: center; }
+        input, button { padding: 10px; margin: 5px 0; border-radius: 6px; border: 1px solid #374151; background: #1f2937; color: #fff; width: 100%; box-sizing: border-box; }
+        button { background: #0284c7; cursor: pointer; font-weight: bold; width: auto; }
+        button:hover { background: #0369a1; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #374151; padding: 10px; text-align: left; font-size: 13px; }
+        th { background: #1f2937; color: #38bdf8; }
+        .hidden { display: none; }
+        .danger { background: #dc3545; }
+        .success { background: #10b981; }
+        .card { background: #1f2937; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>👑 Admin Control Center</h2>
+
+    <div id="login-box" class="card" style="max-width:350px; margin:40px auto;">
+        <h3>Admin Login</h3>
+        <input type="password" id="adminPass" placeholder="Admin Password">
+        <button onclick="login()" style="width:100%; margin-top:10px;">Login</button>
+        <p id="errMsg" style="color:#f87171; text-align:center; font-weight:bold; margin-top:8px;"></p>
+    </div>
+
+    <div id="dash-box" class="hidden">
+        <div class="card" style="max-width: 450px;">
+            <h4 style="margin-top:0; color:#f59e0b;">🔒 Change Admin Password</h4>
+            <input type="password" id="oldPass" placeholder="Old Password">
+            <input type="password" id="newPass" placeholder="New Password (Min 4 chars)">
+            <button class="success" onclick="changePassword()" style="margin-top:8px;">Update Password</button>
+            <p id="passMsg" style="font-size:13px; font-weight:bold; margin-top:6px;"></p>
+        </div>
+
+        <h3>📦 Customer Orders & SR Requests</h3>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Telegram ID</th>
+                        <th>Service Details</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="orders-tbl"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function login() {
+        const password = document.getElementById('adminPass').value;
+        const res = await fetch('/api/admin/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        if(data.success) {
+            document.getElementById('login-box').classList.add('hidden');
+            document.getElementById('dash-box').classList.remove('hidden');
+            loadData();
+        } else {
+            document.getElementById('errMsg').innerText = data.message;
+        }
+    }
+
+    async function changePassword() {
+        const oldPassword = document.getElementById('oldPass').value.trim();
+        const newPassword = document.getElementById('newPass').value.trim();
+        const msgTag = document.getElementById('passMsg');
+
+        const res = await fetch('/api/admin/change-password', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ oldPassword, newPassword })
+        });
+        const data = await res.json();
+        msgTag.innerText = data.message;
+        msgTag.style.color = data.success ? '#10b981' : '#f87171';
+        if(data.success) {
+            document.getElementById('oldPass').value = '';
+            document.getElementById('newPass').value = '';
+        }
+    }
+
+    async function loadData() {
+        const res = await fetch('/api/admin/data');
+        const data = await res.json();
+        let html = '';
+        data.orders.forEach(ord => {
+            let details = '';
+            if(ord.serviceType === 'SR') {
+                details = `<b style="color:#ec4899;">[SR Service]</b><br>Mobile: <code>${ord.srMobile}</code><br>Landline: <code>${ord.srLandline}</code><br>Customer: <b>${ord.srCustomerName}</b>`;
+            } else {
+                details = `<b style="color:#38bdf8;">[Website Order]</b><br>ID: <code>${ord.targetId}</code><br>Pass: <code>${ord.targetPass}</code>`;
+            }
+
+            html += `<tr>
+                <td><code>${ord.telegramChatId}</code></td>
+                <td>${details}</td>
+                <td><b>${ord.status}</b></td>
+                <td>
+                    <button class="success" onclick="action('${ord._id}', 'accept')">Accept</button>
+                    <button class="danger" onclick="action('${ord._id}', 'reject')">Reject</button>
+                    <button onclick="action('${ord._id}', 'inprogress')">In-Prog</button>
+                    <button class="success" onclick="action('${ord._id}', 'complete')">Complete</button>
+                </td>
+            </tr>`;
+        });
+        document.getElementById('orders-tbl').innerHTML = html || `<tr><td colspan="4" style="text-align:center;">No orders found</td></tr>`;
+    }
+
+    async function action(orderId, action) {
+        await fetch('/api/admin/order-action', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ orderId, action })
+        });
+        loadData();
+    }
+</script>
+</body>
+</html>
