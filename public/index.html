@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JPW COIN SERVICES BOT - Portal</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #090d16, #0f172a, #1e293b); 
+            margin: 0; padding: 20px; color: #fff; min-height: 100vh; 
+        }
+        .container { 
+            max-width: 480px; margin: 30px auto; background: rgba(30, 41, 59, 0.85); 
+            backdrop-filter: blur(20px); padding: 25px; border-radius: 20px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.1); 
+        }
+        .logo-box { text-align: center; margin-bottom: 15px; }
+        .logo-box img { width: 75px; height: 75px; border-radius: 50%; border: 2px solid #38bdf8; }
+        h2 { text-align: center; color: #38bdf8; margin: 0 0 5px 0; font-size: 24px; font-weight: 800; }
+        .dev-credit { text-align: center; color: #64748b; font-size: 11px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; }
+        input, button { width: 100%; padding: 14px; margin: 10px 0; border: none; border-radius: 12px; font-size: 15px; box-sizing: border-box; }
+        input { background: rgba(15, 23, 42, 0.8); color: #fff; border: 1px solid rgba(255, 255, 255, 0.15); outline: none; }
+        input:focus { border-color: #38bdf8; box-shadow: 0 0 10px rgba(56,189,248,0.4); }
+        button { background: linear-gradient(135deg, #38bdf8, #0284c7); color: #0f172a; font-weight: 700; cursor: pointer; transition: 0.3s; }
+        button:hover { transform: translateY(-2px); opacity: 0.95; }
+        
+        .pkg-card { 
+            background: rgba(15, 23, 42, 0.6); padding: 14px 18px; margin: 12px 0; border-radius: 14px; 
+            display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255, 255, 255, 0.08); 
+        }
+        .pkg-card button { width: auto; padding: 8px 18px; margin: 0; font-size: 14px; background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
+        .badge { background: #10b981; color: white; padding: 5px 14px; border-radius: 20px; font-size: 14px; font-weight: bold; }
+        .hidden { display: none; }
+        .user-box { background: rgba(15, 23, 42, 0.7); padding: 18px; border-radius: 16px; text-align: center; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 20px; }
+        .switch-btn { background: linear-gradient(135deg, #ec4899, #be185d); color: #fff; margin-bottom: 10px; }
+        .history-btn { background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff; margin-bottom: 15px; }
+        
+        /* History Modal Styling */
+        .history-card { background: rgba(15, 23, 42, 0.8); padding: 12px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid #38bdf8; font-size: 13px; }
+        .history-card.rejected { border-left-color: #ef4444; }
+        .history-card.completed { border-left-color: #10b981; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="logo-box">
+        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="JPW Logo">
+    </div>
+    <h2>JPW COIN SERVICES BOT</h2>
+    <div class="dev-credit">Developed by tenaga technology</div>
+
+    <!-- Web Login Screen (OTP) -->
+    <div id="web-login-screen" class="hidden">
+        <h3 style="text-align: center; color: #cbd5e1; margin-bottom: 5px;">Web Login via Telegram ID</h3>
+        <p style="font-size: 13px; color: #94a3b8; text-align: center; margin-bottom: 15px;">Send `/start` in bot to get your Chat ID:</p>
+        <input type="text" id="webChatIdInput" placeholder="Enter Telegram Chat ID">
+        <button onclick="requestOtp()">📩 Send OTP</button>
+        <p id="loginMsg" style="color:#f87171; text-align:center; font-weight:bold; margin-top: 10px;"></p>
+    </div>
+
+    <!-- OTP Verification Screen -->
+    <div id="otp-verify-screen" class="hidden">
+        <h3 style="text-align: center; color: #cbd5e1; margin-bottom: 5px;">Enter Verification OTP</h3>
+        <p style="font-size: 13px; color: #38bdf8; text-align: center; margin-bottom: 15px;">A 6-digit OTP has been sent to your Telegram chat.</p>
+        <input type="text" id="otpInput" placeholder="Enter 6-digit OTP" maxlength="6" style="letter-spacing: 4px; text-align: center; font-weight: bold; font-size: 20px;">
+        <button onclick="verifyOtp()">🔐 Verify & Login</button>
+        <button onclick="backToChatId()" style="background: rgba(255,255,255,0.08); color: #fff; margin-top: 8px;">⬅️ Back</button>
+        <p id="otpMsg" style="color:#f87171; text-align:center; font-weight:bold; margin-top: 10px;"></p>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard-screen" class="hidden">
+        <div class="user-box">
+            <p style="margin: 6px 0;">👤 <b>Name:</b> <span id="userName" style="color: #38bdf8;"></span></p>
+            <p style="margin: 6px 0;">💬 <b>Telegram ID:</b> <span id="dispChatId" style="font-size: 13px; color: #94a3b8;"></span></p>
+            <p style="margin: 10px 0 6px 0;">🪙 <b>JPW Coins:</b> <span id="userBalance" class="badge">0</span></p>
+            <button onclick="logout()" style="background: #ef4444; color: #fff; width:auto; padding:8px 20px; margin-top:10px; font-size:14px;">🚪 Logout</button>
+        </div>
+
+        <!-- Action Buttons -->
+        <button onclick="openHistoryModal()" class="history-btn">📜 View Order & Transaction History</button>
+        <button id="switchServiceBtn" onclick="toggleServiceMode()" class="switch-btn">🛠️ Switch to SR Service</button>
+
+        <h3 style="margin-top:20px; color: #38bdf8; font-size: 17px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">📦 Recharge Packages & Payment</h3>
+        <div id="packages-list"></div>
+
+        <!-- Website Order Section -->
+        <div id="website-order-section">
+            <h3 style="margin-top:20px; color: #38bdf8; font-size: 17px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">⚡ Submit Website Order (Cost: 1 Coin)</h3>
+            <input type="text" id="targetId" placeholder="Target Username / ID">
+            <input type="password" id="targetPass" placeholder="Target Password">
+            <button onclick="submitOrder()">🚀 Submit Website Order</button>
+            <p id="orderMsg" style="text-align:center; font-weight:bold; margin-top: 10px;"></p>
+        </div>
+
+        <!-- SR Service Order Section -->
+        <div id="sr-order-section" class="hidden">
+            <h3 style="margin-top:20px; color: #ec4899; font-size: 17px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">🛠️ Submit SR Service Request (Cost: 1 Coin)</h3>
+            <input type="text" id="srMobile" placeholder="Customer Registered Mobile Number">
+            <input type="text" id="srLandline" placeholder="Customer Landline Number">
+            <input type="text" id="srCustomerName" placeholder="Customer Name">
+            <button onclick="submitSrOrder()" style="background: linear-gradient(135deg, #ec4899, #be185d); color: #fff;">🚀 Submit SR Request</button>
+            <p id="srOrderMsg" style="text-align:center; font-weight:bold; margin-top: 10px;"></p>
+        </div>
+    </div>
+
+    <!-- History Modal Box -->
+    <div id="history-modal" class="hidden" style="margin-top: 20px; background: rgba(15, 23, 42, 0.95); padding: 18px; border-radius: 14px; border: 1px solid rgba(139,92,246,0.4);">
+        <h3 style="color: #a78bfa; margin-top: 0; text-align: center;">📜 Your Complete History</h3>
+        <div id="history-content" style="max-height: 300px; overflow-y: auto; margin-bottom: 12px;"></div>
+        <button onclick="closeHistoryModal()" style="background: #ef4444; color: #fff;">Close History</button>
+    </div>
+</div>
+
+<script>
+    let telegramChatId = localStorage.getItem('jpw_chat_id') || '';
+    let userName = 'User';
+    let currentMode = 'website';
+
+    function toggleServiceMode() {
+        const webSection = document.getElementById('website-order-section');
+        const srSection = document.getElementById('sr-order-section');
+        const switchBtn = document.getElementById('switchServiceBtn');
+
+        if(currentMode === 'website') {
+            currentMode = 'sr';
+            webSection.classList.add('hidden');
+            srSection.classList.remove('hidden');
+            switchBtn.innerText = "🌐 Switch to Website Order";
+            switchBtn.style.background = "linear-gradient(135deg, #38bdf8, #0284c7)";
+            switchBtn.style.color = "#0f172a";
+        } else {
+            currentMode = 'website';
+            srSection.classList.add('hidden');
+            webSection.classList.remove('hidden');
+            switchBtn.innerText = "🛠️ Switch to SR Service";
+            switchBtn.style.background = "linear-gradient(135deg, #ec4899, #be185d)";
+            switchBtn.style.color = "#fff";
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('payment') === 'success') {
+            const chatId = urlParams.get('telegramChatId');
+            const coins = urlParams.get('coins');
+            const orderId = urlParams.get('order_id');
+            if (chatId && coins) {
+                try {
+                    await fetch('/api/verify-instant', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ telegramChatId: chatId, coins, order_id: orderId })
+                    });
+                    alert(`🎉 Payment Successful! ${coins} JPW Coins added.`);
+                } catch(e) {}
+                window.location.href = '/';
+                return;
+            }
+        }
+
+        if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+            telegramChatId = String(tg.initDataUnsafe.user.id);
+            userName = tg.initDataUnsafe.user.first_name || 'User';
+            localStorage.setItem('jpw_chat_id', telegramChatId);
+            authenticateMiniApp(telegramChatId, userName);
+        } else if (telegramChatId) {
+            authenticateMiniApp(telegramChatId, 'Web User');
+        } else {
+            document.getElementById('web-login-screen').classList.remove('hidden');
+        }
+    });
+
+    let tempChatId = '';
+    async function requestOtp() {
+        tempChatId = document.getElementById('webChatIdInput').value.trim();
+        const msgTag = document.getElementById('loginMsg');
+        if(!tempChatId) { msgTag.innerText = "Enter Telegram Chat ID!"; return; }
+        
+        try {
+            const res = await fetch('/api/send-otp', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ telegramChatId: tempChatId })
+            });
+            const data = await res.json();
+            if(data.success) {
+                document.getElementById('web-login-screen').classList.add('hidden');
+                document.getElementById('otp-verify-screen').classList.remove('hidden');
+            } else { msgTag.innerText = data.message; }
+        } catch(e) { msgTag.innerText = "Network Error!"; }
+    }
+
+    async function verifyOtp() {
+        const otp = document.getElementById('otpInput').value.trim();
+        const msgTag = document.getElementById('otpMsg');
+        try {
+            const res = await fetch('/api/verify-otp', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ telegramChatId: tempChatId, otp })
+            });
+            const data = await res.json();
+            if(data.success) {
+                telegramChatId = data.user.telegramChatId;
+                userName = data.user.name;
+                localStorage.setItem('jpw_chat_id', telegramChatId);
+                document.getElementById('otp-verify-screen').classList.add('hidden');
+                document.getElementById('dashboard-screen').classList.remove('hidden');
+                document.getElementById('userName').innerText = data.user.name;
+                document.getElementById('dispChatId').innerText = data.user.telegramChatId;
+                document.getElementById('userBalance').innerText = data.user.coins.toFixed(4);
+                loadPackages();
+            } else { msgTag.innerText = data.message; }
+        } catch(e) { msgTag.innerText = "Network Error!"; }
+    }
+
+    function backToChatId() {
+        document.getElementById('otp-verify-screen').classList.add('hidden');
+        document.getElementById('web-login-screen').classList.remove('hidden');
+    }
+
+    async function authenticateMiniApp(chatId, name) {
+        try {
+            const res = await fetch('/api/mini-app/auth', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ telegramChatId: chatId, name })
+            });
+            const data = await res.json();
+            if(data.success) {
+                document.getElementById('web-login-screen').classList.add('hidden');
+                document.getElementById('dashboard-screen').classList.remove('hidden');
+                document.getElementById('userName').innerText = data.user.name;
+                document.getElementById('dispChatId').innerText = data.user.telegramChatId;
+                document.getElementById('userBalance').innerText = data.user.coins.toFixed(4);
+                loadPackages();
+            } else {
+                localStorage.removeItem('jpw_chat_id');
+                document.getElementById('web-login-screen').classList.remove('hidden');
+            }
+        } catch(e) { document.getElementById('web-login-screen').classList.remove('hidden'); }
+    }
+
+    async function openHistoryModal() {
+        document.getElementById('history-modal').classList.remove('hidden');
+        const res = await fetch(`/api/user-history?telegramChatId=${telegramChatId}`);
+        const data = await res.json();
+        
+        let html = '';
+        if(data.success && data.orders.length > 0) {
+            data.orders.forEach(ord => {
+                let statusClass = ord.status === 'Rejected' ? 'rejected' : (ord.status === 'Completed' ? 'completed' : '');
+                let details = ord.serviceType === 'SR' ? `📱 SR Mobile: ${ord.srMobile}` : `🌐 Web ID: ${ord.targetId}`;
+                html += `<div class="history-card ${statusClass}">
+                    <b>Type:</b> ${ord.serviceType || 'Website'}<br>
+                    <b>Details:</b> ${details}<br>
+                    <b>Status:</b> <span style="color:${ord.status==='Rejected'?'#ef4444':'#38bdf8'}">${ord.status}</span><br>
+                    <span style="font-size:11px; color:#94a3b8;">🕒 ${new Date(ord.createdAt).toLocaleString()}</span>
+                </div>`;
+            });
+        } else {
+            html = `<p style="text-align:center; color:#94a3b8;">No order history found.</p>`;
+        }
+        document.getElementById('history-content').innerHTML = html;
+    }
+
+    function closeHistoryModal() {
+        document.getElementById('history-modal').classList.add('hidden');
+    }
+
+    async function loadPackages() {
+        const res = await fetch('/api/packages');
+        const data = await res.json();
+        let html = '';
+        data.packages.forEach(pkg => {
+            html += `<div class="pkg-card">
+                <span>₹${pkg.amount} ➡️ <b>${pkg.coins} Coins</b></span>
+                <button onclick="buyPackage(${pkg.amount}, ${pkg.coins})">Pay ₹${pkg.amount}</button>
+            </div>`;
+        });
+        document.getElementById('packages-list').innerHTML = html;
+    }
+
+    async function buyPackage(amount, coins) {
+        const res = await fetch('/api/pay', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ telegramChatId, amount, coins })
+        });
+        const data = await res.json();
+        if(data.success) {
+            const cashfree = Cashfree({ mode: "production" });
+            cashfree.checkout({ paymentSessionId: data.paymentSessionId, redirectTarget: "_self" });
+        } else { alert(data.message || 'Payment initiation failed'); }
+    }
+
+    async function submitOrder() {
+        const targetId = document.getElementById('targetId').value.trim();
+        const targetPass = document.getElementById('targetPass').value.trim();
+        if(!targetId || !targetPass) return alert('All fields required');
+
+        const res = await fetch('/api/order', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ telegramChatId, targetId, targetPass })
+        });
+        const data = await res.json();
+        document.getElementById('orderMsg').innerText = data.message;
+        document.getElementById('orderMsg').style.color = data.success ? '#10b981' : '#f87171';
+        if(data.success) { authenticateMiniApp(telegramChatId, userName); document.getElementById('targetId').value=''; document.getElementById('targetPass').value=''; }
+    }
+
+    async function submitSrOrder() {
+        const srMobile = document.getElementById('srMobile').value.trim();
+        const srLandline = document.getElementById('srLandline').value.trim();
+        const srCustomerName = document.getElementById('srCustomerName').value.trim();
+        if(!srMobile || !srLandline || !srCustomerName) return alert('All SR fields required');
+
+        const res = await fetch('/api/sr-order', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ telegramChatId, srMobile, srLandline, srCustomerName })
+        });
+        const data = await res.json();
+        document.getElementById('srOrderMsg').innerText = data.message;
+        document.getElementById('srOrderMsg').style.color = data.success ? '#10b981' : '#f87171';
+        if(data.success) { authenticateMiniApp(telegramChatId, userName); document.getElementById('srMobile').value=''; document.getElementById('srLandline').value=''; document.getElementById('srCustomerName').value=''; }
+    }
+
+    function logout() { localStorage.removeItem('jpw_chat_id'); location.reload(); }
+</script>
+</body>
+</html>
