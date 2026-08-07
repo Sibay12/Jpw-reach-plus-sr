@@ -19,10 +19,6 @@
         .success { background: #10b981; }
         .warning { background: #f59e0b; color: #000; }
         .card { background: #1f2937; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
-        .stat-card { background: #111827; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #374151; }
-        .stat-card h4 { margin: 0 0 5px 0; color: #94a3b8; font-size: 13px; }
-        .stat-card span { font-size: 22px; font-weight: bold; color: #38bdf8; }
     </style>
 </head>
 <body>
@@ -37,43 +33,6 @@
     </div>
 
     <div id="dash-box" class="hidden">
-        <!-- System Statistics Grid -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h4>👥 Total Users</h4>
-                <span id="statUsers">0</span>
-            </div>
-            <div class="stat-card">
-                <h4>📦 Total Orders</h4>
-                <span id="statOrders">0</span>
-            </div>
-            <div class="stat-card">
-                <h4>⏳ Pending Orders</h4>
-                <span id="statPending" style="color: #f59e0b;">0</span>
-            </div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <!-- Change Password Card -->
-            <div class="card">
-                <h4 style="margin-top:0; color:#f59e0b;">🔒 Change Admin Password</h4>
-                <input type="password" id="oldPass" placeholder="Old Password">
-                <input type="password" id="newPass" placeholder="New Password (Min 4 chars)">
-                <button class="success" onclick="changePassword()" style="margin-top:8px;">Update Password</button>
-                <p id="passMsg" style="font-size:13px; font-weight:bold; margin-top:6px;"></p>
-            </div>
-
-            <!-- Broadcast & Giveaway Card -->
-            <div class="card">
-                <h4 style="margin-top:0; color:#38bdf8;">📢 Broadcast & Giveaway</h4>
-                <input type="text" id="broadcastMsg" placeholder="Announcement message for all users">
-                <button class="warning" onclick="sendBroadcast()" style="width:100%;">Send Broadcast</button>
-                <input type="number" id="giveawayCoins" placeholder="Total JPW Coins to split equally" style="margin-top: 10px;">
-                <button class="success" onclick="sendGiveaway()" style="width:100%;">Split Giveaway</button>
-                <p id="toolMsg" style="font-size:12px; margin-top:5px; font-weight:bold;"></p>
-            </div>
-        </div>
-
         <h3>📦 Customer Orders & SR Requests</h3>
         <div style="overflow-x: auto;">
             <table>
@@ -86,6 +45,21 @@
                     </tr>
                 </thead>
                 <tbody id="orders-tbl"></tbody>
+            </table>
+        </div>
+
+        <h3 style="margin-top: 30px;">👥 Registered Users Management (Coin / Reaches Control)</h3>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Telegram ID</th>
+                        <th>Customer Name</th>
+                        <th>Current Balance</th>
+                        <th>Manage Coins & Delete</th>
+                    </tr>
+                </thead>
+                <tbody id="users-tbl"></tbody>
             </table>
         </div>
     </div>
@@ -109,83 +83,43 @@
         }
     }
 
-    async function changePassword() {
-        const oldPassword = document.getElementById('oldPass').value.trim();
-        const newPassword = document.getElementById('newPass').value.trim();
-        const msgTag = document.getElementById('passMsg');
-
-        const res = await fetch('/api/admin/change-password', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ oldPassword, newPassword })
-        });
-        const data = await res.json();
-        msgTag.innerText = data.message;
-        msgTag.style.color = data.success ? '#10b981' : '#f87171';
-        if(data.success) {
-            document.getElementById('oldPass').value = '';
-            document.getElementById('newPass').value = '';
-        }
-    }
-
-    async function sendBroadcast() {
-        const message = document.getElementById('broadcastMsg').value.trim();
-        if(!message) return alert('Enter announcement message');
-        const res = await fetch('/api/admin/broadcast', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ message })
-        });
-        const data = await res.json();
-        alert(data.message);
-        document.getElementById('broadcastMsg').value = '';
-    }
-
-    async function sendGiveaway() {
-        const totalAmount = document.getElementById('giveawayCoins').value.trim();
-        if(!totalAmount) return alert('Enter coin amount');
-        const res = await fetch('/api/admin/giveaway', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ totalAmount })
-        });
-        const data = await res.json();
-        alert(data.message);
-        document.getElementById('giveawayCoins').value = '';
-    }
-
     async function loadData() {
         const res = await fetch('/api/admin/data');
         const data = await res.json();
-        
-        // Update Stats
-        document.getElementById('statUsers').innerText = data.users.length;
-        document.getElementById('statOrders').innerText = data.orders.length;
-        let pendingCount = data.orders.filter(o => o.status === 'Pending').length;
-        document.getElementById('statPending').innerText = pendingCount;
 
-        let html = '';
+        // Render Orders
+        let ordersHtml = '';
         data.orders.forEach(ord => {
-            let details = '';
-            if(ord.serviceType === 'SR') {
-                details = `<b style="color:#ec4899;">[SR Service]</b><br>Mobile: <code>${ord.srMobile}</code><br>Landline: <code>${ord.srLandline}</code><br>Customer: <b>${ord.srCustomerName}</b>`;
-            } else {
-                details = `<b style="color:#38bdf8;">[Website Order]</b><br>ID: <code>${ord.targetId}</code><br>Pass: <code>${ord.targetPass}</code>`;
-            }
-
-            html += `<tr>
+            let details = ord.serviceType === 'SR' ? `[SR] Mobile: ${ord.srMobile}` : `[Web] ID: ${ord.targetId}`;
+            ordersHtml += `<tr>
                 <td><code>${ord.telegramChatId}</code></td>
                 <td>${details}</td>
                 <td><b>${ord.status}</b></td>
                 <td>
                     <button class="success" onclick="action('${ord._id}', 'accept')">Accept</button>
                     <button class="danger" onclick="action('${ord._id}', 'reject')">Reject</button>
-                    <button onclick="action('${ord._id}', 'inprogress')">In-Prog</button>
                     <button class="success" onclick="action('${ord._id}', 'complete')">Complete</button>
                 </td>
             </tr>`;
         });
-        document.getElementById('orders-tbl').innerHTML = html || `<tr><td colspan="4" style="text-align:center;">No orders found</td></tr>`;
+        document.getElementById('orders-tbl').innerHTML = ordersHtml || `<tr><td colspan="4" style="text-align:center;">No orders</td></tr>`;
+
+        // Render Users Management Table
+        let usersHtml = '';
+        data.users.forEach(usr => {
+            usersHtml += `<tr>
+                <td><code>${usr.telegramChatId}</code></td>
+                <td><b>${usr.name || 'User'}</b></td>
+                <td>${usr.coins.toFixed(4)} Coins</td>
+                <td>
+                    <input type="number" id="coin_val_${usr._id}" placeholder="Amount" style="width:90px; display:inline-block; padding:5px;" step="any">
+                    <button class="success" style="padding:6px 10px;" onclick="modifyCoins('${usr._id}', 'add')">Add</button>
+                    <button class="warning" style="padding:6px 10px;" onclick="modifyCoins('${usr._id}', 'sub')">Sub</button>
+                    <button class="danger" style="padding:6px 10px;" onclick="deleteUser('${usr._id}')">Delete</button>
+                </td>
+            </tr>`;
+        });
+        document.getElementById('users-tbl').innerHTML = usersHtml || `<tr><td colspan="4" style="text-align:center;">No users</td></tr>`;
     }
 
     async function action(orderId, action) {
@@ -195,6 +129,30 @@
             body: JSON.stringify({ orderId, action })
         });
         loadData();
+    }
+
+    async function modifyCoins(userId, type) {
+        const amount = document.getElementById(`coin_val_${userId}`).value.trim();
+        if(!amount) return alert('Enter amount');
+        const res = await fetch('/api/admin/modify-coins', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ userId, amount, type })
+        });
+        const data = await res.json();
+        if(data.success) { alert('Updated successfully!'); loadData(); }
+        else { alert(data.message); }
+    }
+
+    async function deleteUser(userId) {
+        if(!confirm('Delete this user?')) return;
+        const res = await fetch('/api/admin/delete-user', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ userId })
+        });
+        const data = await res.json();
+        if(data.success) { alert('User deleted!'); loadData(); }
     }
 </script>
 </body>
